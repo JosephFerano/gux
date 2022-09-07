@@ -1,11 +1,19 @@
 # -*- org-src-preserve-indentation: t -*-
-#+TITLE: Loading a Shared Library at Runtime in C
+#+TITLE: Runtime Shared Library Loading in C
 #+AUTHOR: Joseph Ferano
 #+PROPERTY: header-args:C :tangle ./main.c
 #+STARTUP: overview
 #+TOC: true
 
-* Basic includes
+* Intro
+
+This literate program is used to test and document basic loading of a shared
+library (.so extension) at runtime in C on Linux. It also serves as practice for
+literate programming. I find it particularly useful that I can not only generate
+different C source files, but also the ability to include the related shell
+commands and be able to execute them without having to switch to the shell.
+
+*** Basic includes
 
 Start with the includes, notable one being `<dlfcn.h>` which includes the
 functions for `dlopen` and `dlsym`.
@@ -15,7 +23,7 @@ functions for `dlopen` and `dlsym`.
 #include <dlfcn.h>
 #+end_src
 
-* Main
+*** Main
 
 Use void to ignore the command line args
 
@@ -23,7 +31,7 @@ Use void to ignore the command line args
 int main(void) {
 #+end_src
 
-* Create a typedef
+*** Create a typedef
 
 This ~typedef~ helps us more cleanly cast to the function signature, in this case
 `int -> int -> int` of the function we are loading.
@@ -32,7 +40,7 @@ This ~typedef~ helps us more cleanly cast to the function signature, in this cas
     typedef int (*add_f)(int, int);
 #+end_src
 
-* A shared lib for testing
+*** A shared lib for testing
 
 Super basic function whose function signature matches `int -> int -> int`.
 
@@ -42,7 +50,7 @@ int add(int lhs, int rhs) {
 }
 #+end_src
 
-* Generating a shared object library
+*** Generating a shared object library
 
 First generate the `sharedlib.o` object file. The `-c` flag compiles the source
 file but does not link. The `-fPIC` flag will emit position-independent
@@ -76,7 +84,7 @@ nm -g --defined-only libmylib.so
 #+RESULTS:
 : 00000000000010e9 T add
 
-* Load the lib
+*** Load the lib
 
 #+begin_src C
     void *handle = dlopen("./libmylib.so", RTLD_NOW);
@@ -86,7 +94,7 @@ nm -g --defined-only libmylib.so
 guess it tries to use the normal include paths to find the shared
 library. `RTLD_NOW` maps the symbols immediately.
 
-* Bind the function
+*** Bind the function
 #+begin_src C
     add_f f;
     *(void **) (&f) = dlsym(handle, "add");
@@ -94,12 +102,11 @@ library. `RTLD_NOW` maps the symbols immediately.
 
 This weird cast is explained in an SO answer
 
-* Test the function
+*** Test the function
 
 Finally, we can call the function.
 
 #+begin_src C
-
     int test = f(5, 5);
     printf("%i\n", test);
 }
