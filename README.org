@@ -1,0 +1,105 @@
+# -*- org-src-preserve-indentation: t -*-
+#+TITLE: Loading a Shared Library at Runtime in C
+#+AUTHOR: Joseph Ferano
+#+PROPERTY: header-args:C :tangle ./main.c
+#+STARTUP: overview
+#+TOC: true
+
+* Basic includes
+
+Start with the includes, notable one being `<dlfcn.h>` which includes the
+functions for `dlopen` and `dlsym`.
+
+#+begin_src C
+#include <stdio.h>
+#include <dlfcn.h>
+#+end_src
+
+* Main
+
+Use void to ignore the command line args
+
+#+begin_src C
+int main(void) {
+#+end_src
+
+* Create a typedef
+
+This ~typedef~ helps us more cleanly cast to the function signature, in this case
+`int -> int -> int` of the function we are loading.
+
+#+begin_src C
+    typedef int (*add_f)(int, int);
+#+end_src
+
+* A shared lib for testing
+
+Super basic function whose function signature matches `int -> int -> int`.
+
+#+begin_src C :tangle mylib.c
+int add(int lhs, int rhs) {
+    return lhs + rhs;
+}
+#+end_src
+
+* Generating a shared object library
+
+First generate the `sharedlib.o` object file. The `-c` flag compiles the source
+file but does not link. The `-fPIC` flag will emit position-independent
+code (PIC), which is what's needed for dynamic linking. What this  means is that
+the generated machine code uses relative jumps instead of absolute, so if the
+library is not loaded at its preferred address it can still work. See [[https://stackoverflow.com/a/5311538][this]] SO answer.
+
+#+begin_src sh :results none
+ gcc -fPIC -c mylib.c
+#+end_src
+
+Then call the following to generate the shared object.
+
+#+begin_src sh :results none
+gcc -shared -Wl,-soname,libmylib.so.1 mylib.o -o libmylib.so.1.1.1
+ln -s libmylib.so.1.1.1 libmylib.so
+#+end_src
+
+`-shared` for creating a shared object, not sure why this is different from a
+regular object, `-Wl` passes the rest of the string to the linker. The `ln -s`
+command is used as a convention to symbolically link the lib and hide its
+version.
+
+If you wish to view the functions you've created, you can run this command
+
+#+begin_src sh
+nm -g --defined-only libmylib.so
+#+end_src
+
+#+RESULTS:
+: 00000000000010e9 T add
+
+* Load the lib
+
+#+begin_src C
+    void *handle = dlopen("./libmylib.so", RTLD_NOW);
+#+end_src
+
+`dlopen` returns a void pointer. It's important to use a relative path, if not I
+guess it tries to use the normal include paths to find the shared
+library. `RTLD_NOW` maps the symbols immediately.
+
+* Bind the function
+#+begin_src C
+    add_f f;
+    *(void **) (&f) = dlsym(handle, "add");
+#+end_src
+
+This weird cast is explained in an SO answer
+
+* Test the function
+
+Finally, we can call the function.
+
+#+begin_src C
+
+    int test = f(5, 5);
+    printf("%i\n", test);
+}
+#+end_src
