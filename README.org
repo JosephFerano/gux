@@ -66,7 +66,8 @@ regular object, `-Wl` passes the rest of the string to the linker. The `ln -s`
 command is used as a convention to symbolically link the lib and hide its
 version.
 
-If you wish to view the functions you've created, you can run this command
+If you wish to view the functions you've created, you can run this command. With
+the `--defined-only` flag, it'll just show the functions we've defined.
 
 #+begin_src sh
 nm -g --defined-only libmylib.so
