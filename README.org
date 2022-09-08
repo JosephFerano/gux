@@ -9,11 +9,11 @@
 
 This literate program is used to test and document basic loading of a shared
 library (.so extension) at runtime in C on Linux. It also serves as practice for
-literate programming. I find it particularly useful that I can not only generate
-different C source files, but also the ability to include the related shell
+literate programming. I find it convenient that I can not only generate
+different C source files, but also have the ability to include the related shell
 commands and be able to execute them without having to switch to the shell.
 
-*** Main
+**** Main
 
 The ~<dlfcn.h>~ header is the one that includes the functions for ~dlopen~ and
 ~dlsym~. For now, just use the ~main(void)~ version.
@@ -25,7 +25,7 @@ The ~<dlfcn.h>~ header is the one that includes the functions for ~dlopen~ and
 int main(void) {
 #+end_src
 
-*** Function pointer typedef
+**** Function pointer typedef
 
 This ~typedef~ helps us more cleanly cast to the function signature, in this case
 ~int -> int -> int~ for the test function we will be loading.
@@ -34,7 +34,7 @@ This ~typedef~ helps us more cleanly cast to the function signature, in this cas
     typedef int (*add_f)(int, int);
 #+end_src
 
-*** A shared lib for testing
+**** A shared lib for testing
 
 Super basic function whose signature matches ~int -> int -> int~. This
 get's tangled out to a separate source file which will then be converted into
@@ -46,7 +46,7 @@ int add(int lhs, int rhs) {
 }
 #+end_src
 
-*** Generating a shared object library
+***** Generating a shared object library
 
 First generate the ~sharedlib.o~ object file. The ~-c~ flag compiles the source
 file but does not link. The ~-fPIC~ flag will emit position-independent
@@ -62,13 +62,11 @@ Then call the following to generate the shared object.
 
 #+begin_src sh :results none
 gcc -shared -Wl,-soname,libmylib.so.1 mylib.o -o libmylib.so.1.1.1
-ln -s libmylib.so.1.1.1 libmylib.so
 #+end_src
 
-~-shared~ for creating a shared object, not sure why this is different from a
-regular object, ~-Wl~ passes the rest of the string to the linker. The ~ln -s~
-command is used as a convention to symbolically link the lib and hide its
-version.
+~-shared~ for creating a shared object, which then allows to link at runtime or
+invoke ~dlopen~. ~-Wl~ is used to pass arguments to the linker as a sort of middle
+man.
 
 The following command can be used to view the defined functions. The ~-g~ flag
 displays only external symbols and with the ~--defined-only~ flag, it'll just show
@@ -81,7 +79,36 @@ nm -g --defined-only libmylib.so
 #+RESULTS:
 : 00000000000010e9 T add
 
-*** Loading the lib
+Here is an example makefile that will produce the shared object, along with the
+main executable;
+
+#+begin_src makefile :tangle Makefile
+CFLAGS=-g -Wall -Wextra -pedantic -O0
+
+all:main mylib.so
+
+mylib.so: mylib.o
+	$(CC) -shared -Wl,-soname,lib$@.1 mylib.o -o lib$@.1.1.1
+	ln -sf lib$@.1.1.1 lib$@
+
+main: clean
+	$(CC) $(CFLAGS) main.c -o main
+
+clean:
+	$(RM) main mylib.o libmylib.so*
+#+end_src
+
+Note the ~ln -sf~ command when creating the shared object. While it's overkill for
+our example, because we are not going to be doing any semantic versioning, I
+added it to illustrate a popular convention used. Because of the way the C
+linker handles the ~gcc~ linked object arguments in in the form ~-lmylib~ (such that
+the initial ~lib~ and final ~.so~ can be omitted but magically resolved in the end),
+having a symbolic link without the semantic versioning at the end makes it
+work. The operating system uses ~ldconfig~ to generate the symbolic links for
+shared libraries it found in paths provided by ~/etc/ld.so.conf~ and will
+automatically update to the latest version when running an update.
+
+**** Loading the lib
 
 #+begin_src C
     void *handle = dlopen("./libmylib.so", RTLD_NOW);
@@ -91,7 +118,7 @@ nm -g --defined-only libmylib.so
 guess it tries to use the normal include paths to find the shared
 library. ~RTLD_NOW~ maps the symbols immediately.
 
-*** Bind the function
+**** Bind the function
 
 Now call ~dlsym~ to bind the function to a local variable;
 
@@ -123,9 +150,9 @@ main.c:11:7: warning: ISO C forbids assignment between function pointer and ‘v
 #+end_src
 
 
-*** Test the function
+**** Test the function
 
-Finally, we can call the function.
+Finally, we call the function and the output in the terminal shows ~10~.
 
 #+begin_src C
     int test = f(5, 5);

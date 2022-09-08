@@ -1,17 +1,13 @@
-P=main
-OBJECTS=
 CFLAGS=-g -Wall -Wextra -pedantic -O0
-LDLIBS=
-CC=gcc
-RM=rm -vf
 
-$(P): clean
-	$(CC) $(CFLAGS) $(P).c -o $(P)
+all:main mylib.so
+
+mylib.so: mylib.o
+	$(CC) -shared -Wl,-soname,lib$@.1 mylib.o -o lib$@.1.1.1
+	ln -sf lib$@.1.1.1 lib$@
+
+main: clean
+	$(CC) $(CFLAGS) main.c -o main
 
 clean:
-	$(RM) $(P)
-
-run:$(P)
-	./$(P)
-
-all:$(P)
+	$(RM) main mylib.o libmylib.so*
