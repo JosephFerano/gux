@@ -5,7 +5,7 @@
 #+STARTUP: overview
 #+TOC: true
 
-* Intro
+** Intro
 
 This literate program is used to test and document basic loading of a shared
 library (.so extension) at runtime in C on Linux. It also serves as practice for
@@ -46,7 +46,7 @@ int add(int lhs, int rhs) {
 }
 #+end_src
 
-***** Generating a shared object library
+**** Generating a shared object library
 
 First generate the ~sharedlib.o~ object file. The ~-c~ flag compiles the source
 file but does not link. The ~-fPIC~ flag will emit position-independent
@@ -69,8 +69,8 @@ invoke ~dlopen~. ~-Wl~ is used to pass arguments to the linker as a sort of midd
 man.
 
 The following command can be used to view the defined functions. The ~-g~ flag
-displays only external symbols and with the ~--defined-only~ flag, it'll just show
-the functions we've defined.
+displays only external symbols and the ~--defined-only~ flag will just show the
+functions we've defined.
 
 #+begin_src sh
 nm -g --defined-only libmylib.so
@@ -100,13 +100,13 @@ clean:
 
 Note the ~ln -sf~ command when creating the shared object. While it's overkill for
 our example, because we are not going to be doing any semantic versioning, I
-added it to illustrate a popular convention used. Because of the way the C
-linker handles the ~gcc~ linked object arguments in in the form ~-lmylib~ (such that
-the initial ~lib~ and final ~.so~ can be omitted but magically resolved in the end),
-having a symbolic link without the semantic versioning at the end makes it
-work. The operating system uses ~ldconfig~ to generate the symbolic links for
-shared libraries it found in paths provided by ~/etc/ld.so.conf~ and will
-automatically update to the latest version when running an update.
+added it to illustrate a popular convention used. Because of way ~gcc~ linked
+object arguments are in the form ~-lmylib~ (such that the initial ~lib~ and final ~.so~
+can be omitted but magically resolved in the end), having a symbolic link
+without the semantic versioning at the end makes it work. The operating system
+uses ~ldconfig~ to generate the symbolic links for shared libraries it found in
+paths provided by ~/etc/ld.so.conf~ and will automatically update to the latest
+version when running an update.
 
 **** Loading the lib
 
@@ -114,13 +114,13 @@ automatically update to the latest version when running an update.
     void *handle = dlopen("./libmylib.so", RTLD_NOW);
 #+end_src
 
-~dlopen~ returns a void pointer. It's important to use a relative path, if not I
-guess it tries to use the normal include paths to find the shared
-library. ~RTLD_NOW~ maps the symbols immediately.
+~dlopen~ returns a void pointer. It's important to specify either an absolute or
+relative path, if not it will search for the library in the include
+paths. ~RTLD_NOW~ maps the symbols immediately.
 
 **** Bind the function
 
-Now call ~dlsym~ to bind the function to a local variable;
+Now call ~dlsym~ to bind the function to a local variable.
 
 #+begin_src C
     add_f f;
@@ -128,10 +128,10 @@ Now call ~dlsym~ to bind the function to a local variable;
 #+end_src
 
 This trickery with the cast is related to a warning we get with ~-pedantic~
-set. If we were to simply bind like this;
+set. If we were to simply bind with a cast like this;
 
 #+begin_src C :tangle no
-    f = dlsym(handle, "add");
+    f = (add_f)dlsym(handle, "add");
 #+end_src
 
 then compile;
@@ -144,11 +144,16 @@ it produces the following warning;
 
 #+begin_src
 main.c: In function ‘main’:
-main.c:11:7: warning: ISO C forbids assignment between function pointer and ‘void *’ [-Wpedantic]
-   11 |     f = dlsym(handle, "add");
-      |       ^
+main.c:12:9: warning: ISO C forbids conversion of object pointer to function pointer type [-Wpedantic]
+   12 |     f = (add_f)dlsym(handle, "add");
+      |         ^
 #+end_src
 
+The compiler warns about this because the C standard assumes that pointers to
+different object types and function pointers might have different
+representations but ~dlsym~ just assumes all pointers are the same. So this
+"clumsy" cast conforms with the ISO C standard and will avoid the compiler
+warnings. See the EXAMPLES section of ~man dlopen~.
 
 **** Test the function
 
