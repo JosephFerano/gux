@@ -115,7 +115,7 @@ version when running an update.
 #+end_src
 
 ~dlopen~ returns a void pointer. It's important to specify either an absolute or
-relative path, if not it will search for the library in the include
+relative path, if not it will search for the library in the system's library
 paths. ~RTLD_NOW~ maps the symbols immediately.
 
 **** Bind the function
