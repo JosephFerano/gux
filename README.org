@@ -1,5 +1,5 @@
 # -*- org-src-preserve-indentation: t -*-
-#+TITLE: Runtime Shared Library Loading in C
+#+TITLE: Gux
 #+AUTHOR: Joseph Ferano
 
 * About
