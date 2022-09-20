@@ -1,5 +1,5 @@
 /libmylib.so
 /libmylib.so.1.1.1
-/main
+/sharedlib
 /mylib.o
-/main.o
+/sharedlib.o

@@ -1,166 +1,24 @@
 # -*- org-src-preserve-indentation: t -*-
 #+TITLE: Runtime Shared Library Loading in C
 #+AUTHOR: Joseph Ferano
-#+PROPERTY: header-args:C :tangle ./main.c
-#+STARTUP: overview
-#+TOC: true
 
-** Intro
+* About
 
-This literate program is used to test and document basic loading of a shared
-library (.so extension) at runtime in C on Linux. It also serves as practice for
-literate programming. I find it convenient that I can not only generate
-different C source files, but also have the ability to include the related shell
-commands and be able to execute them without having to switch to the shell.
+This repo contains a few utilities intented to practice *nix programming. It also contains the
+source files for the book "Advanced Unix Programming", for easy access.
 
-**** Main
+*** SharedLibs.org
+This is an org babel literate program. The program itself doesn't do much of anything, it just
+creates a shared library and then loads it at runtime. What's useful is that it's written in a
+literate programming style; by tangling and executing some of the embedded commands, it'll produce a
+full functioning program. The nicely formatted/rendered documentation then serves as future
+reference.
 
-The ~<dlfcn.h>~ header is the one that includes the functions for ~dlopen~ and
-~dlsym~. For now, just use the ~main(void)~ version.
+*** copy.c
 
-#+begin_src C
-#include <stdio.h>
-#include <dlfcn.h>
+Simple ~cp~ like program for copying the contents of one file to another
 
-int main(void) {
-#+end_src
-
-**** Function pointer typedef
-
-This ~typedef~ helps us more cleanly cast to the function signature, in this case
-~int -> int -> int~ for the test function we will be loading.
-
-#+begin_src C
-    typedef int (*add_f)(int, int);
-#+end_src
-
-**** A shared lib for testing
-
-Super basic function whose signature matches ~int -> int -> int~. This
-get's tangled out to a separate source file which will then be converted into
-the shared object.
-
-#+begin_src C :tangle mylib.c
-int add(int lhs, int rhs) {
-    return lhs + rhs;
-}
-#+end_src
-
-**** Generating a shared object library
-
-First generate the ~sharedlib.o~ object file. The ~-c~ flag compiles the source
-file but does not link. The ~-fPIC~ flag will emit position-independent
-code (PIC), which is what's needed for dynamic linking. What this means is that
-the generated machine code uses relative jumps instead of absolute, so if the
-library is not loaded at its preferred address it can still work. See [[https://stackoverflow.com/a/5311538][this]] SO answer.
-
-#+begin_src sh :results none
-gcc -fPIC -c mylib.c
-#+end_src
-
-Then call the following to generate the shared object.
-
-#+begin_src sh :results none
-gcc -shared -Wl,-soname,libmylib.so.1 mylib.o -o libmylib.so.1.1.1
-#+end_src
-
-~-shared~ for creating a shared object, which then allows to link at runtime or
-invoke ~dlopen~. ~-Wl~ is used to pass arguments to the linker as a sort of middle
-man.
-
-The following command can be used to view the defined functions. The ~-g~ flag
-displays only external symbols and the ~--defined-only~ flag will just show the
-functions we've defined.
-
-#+begin_src sh
-nm -g --defined-only libmylib.so
-#+end_src
-
-#+RESULTS:
-: 00000000000010e9 T add
-
-Here is an example makefile that will produce the shared object, along with the
-main executable;
-
-#+begin_src makefile :tangle Makefile
-CFLAGS=-g -Wall -Wextra -pedantic -O0
-
-all:main mylib.so
-
-mylib.so: mylib.o
-	$(CC) -shared -Wl,-soname,lib$@.1 mylib.o -o lib$@.1.1.1
-	ln -sf lib$@.1.1.1 lib$@
-
-main: clean
-	$(CC) $(CFLAGS) main.c -o main
-
-clean:
-	$(RM) main mylib.o libmylib.so*
-#+end_src
-
-Note the ~ln -sf~ command when creating the shared object. While it's overkill for
-our example, because we are not going to be doing any semantic versioning, I
-added it to illustrate a popular convention used. Because of way ~gcc~ linked
-object arguments are in the form ~-lmylib~ (such that the initial ~lib~ and final ~.so~
-can be omitted but magically resolved in the end), having a symbolic link
-without the semantic versioning at the end makes it work. The operating system
-uses ~ldconfig~ to generate the symbolic links for shared libraries it found in
-paths provided by ~/etc/ld.so.conf~ and will automatically update to the latest
-version when running an update.
-
-**** Loading the lib
-
-#+begin_src C
-    void *handle = dlopen("./libmylib.so", RTLD_NOW);
-#+end_src
-
-~dlopen~ returns a void pointer. It's important to specify either an absolute or
-relative path, if not it will search for the library in the system's library
-paths. ~RTLD_NOW~ maps the symbols immediately.
-
-**** Bind the function
-
-Now call ~dlsym~ to bind the function to a local variable.
-
-#+begin_src C
-    add_f f;
-    *(void **) (&f) = dlsym(handle, "add");
-#+end_src
-
-This trickery with the cast is related to a warning we get with ~-pedantic~
-set. If we were to simply bind with a cast like this;
-
-#+begin_src C :tangle no
-    f = (add_f)dlsym(handle, "add");
-#+end_src
-
-then compile;
-
-#+begin_src sh
-gcc -g -Wall -Wextra -pedantic -O0 main.c -o main
-#+end_src
-
-it produces the following warning;
-
-#+begin_src
-main.c: In function ‘main’:
-main.c:12:9: warning: ISO C forbids conversion of object pointer to function pointer type [-Wpedantic]
-   12 |     f = (add_f)dlsym(handle, "add");
-      |         ^
-#+end_src
-
-The compiler warns about this because the C standard assumes that pointers to
-different object types and function pointers might have different
-representations but ~dlsym~ just assumes all pointers are the same. So this
-"clumsy" cast conforms with the ISO C standard and will avoid the compiler
-warnings. See the EXAMPLES section of ~man dlopen~.
-
-**** Test the function
-
-Finally, we call the function and the output in the terminal shows ~10~.
-
-#+begin_src C
-    int test = f(5, 5);
-    printf("%i\n", test);
-}
-#+end_src
+*** fell.c
+A basic *nix shell, like bash
+*** sdl.c
+Testing out some SDL stuff
